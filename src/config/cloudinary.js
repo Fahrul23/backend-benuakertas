@@ -9,12 +9,14 @@ import multer from 'multer';
  * Used for: design files, payment proofs, box model images
  */
 
-// Configure Cloudinary
-cloudinary.config({
+// Configure Cloudinary — explicitly read from process.env at call time
+const getCloudinaryConfig = () => ({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+cloudinary.config(getCloudinaryConfig());
 
 console.log('☁️  Cloudinary config:', {
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'MISSING',

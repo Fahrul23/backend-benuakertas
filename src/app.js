@@ -55,6 +55,17 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+// debug: add env debug endpoint
+app.get('/api/debug-env', (req, res) => {
+  res.json({
+    cloudinary: {
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'MISSING',
+      api_key: process.env.CLOUDINARY_API_KEY ? 'SET' : 'MISSING',
+      api_secret: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'MISSING',
+    },
+    node_env: process.env.NODE_ENV,
+  });
+});
 
 import orderRoutes from './routes/order.routes.js';
 
