@@ -18,11 +18,19 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // CORS - izinkan request dari client
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  process.env.CLIENT_URL,
+].filter(Boolean);
+
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL || 'http://localhost:5173',
-    'http://localhost:5174', // Alternatif port jika 5173 sudah digunakan
-  ],
+  origin: (origin, callback) => {
+    // Izinkan request tanpa origin (mobile app, curl, Postman)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} tidak diizinkan`));
+  },
   credentials: true,
 }));
 
