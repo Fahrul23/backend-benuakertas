@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "npx prisma migrate deploy && npx prisma db seed && node server.js",
+    "start": "npx prisma migrate deploy && node server.js",
     "build": "npx prisma generate",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
