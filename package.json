@@ -6,13 +6,13 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon server.js",
-    "start": "npx prisma migrate deploy && node server.js",
+    "start": "npx prisma migrate deploy && npx prisma db seed && node server.js",
     "build": "npx prisma generate",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio",
-    "prisma:seed": "prisma db seed"
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate dev",
+    "prisma:deploy": "npx prisma migrate deploy",
+    "prisma:studio": "npx prisma studio",
+    "prisma:seed": "npx prisma db seed"
   },
   "keywords": [
     "percetakan",
@@ -24,6 +24,7 @@
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^5.14.0",
+    "prisma": "^5.14.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
@@ -38,8 +39,7 @@
     "zod": "^4.4.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14",
-    "prisma": "^5.14.0"
+    "nodemon": "^3.1.14"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
