@@ -1,0 +1,348 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int            @id @default(autoincrement())
+  name                String         @db.VarChar(100)
+  email               String         @unique @db.VarChar(255)
+  password            String         @db.VarChar(255)
+  role                users_role     @default(USER)
+  phone               String?        @db.VarChar(20)
+  province            String?        @db.VarChar(100)
+  city                String?        @db.VarChar(100)
+  district            String?        @db.VarChar(100)
+  postalCode          String?        @db.VarChar(10)
+  detailAddress       String?        @db.Text
+  createdAt           DateTime       @default(now())
+  resetPasswordExpiry DateTime?
+  resetPasswordToken  String?        @db.VarChar(255)
+  order_history       OrderHistory[]
+  orders              Order[]
+  payments            payments[]
+
+  @@map("users")
+}
+
+// ==========================================
+// Master Data Tables
+// ==========================================
+
+model BoxModel {
+  id          Int       @id @default(autoincrement())
+  code        String    @unique @db.VarChar(100)
+  name        String    @db.VarChar(200)
+  description String?   @db.Text
+  imageUrl    String?   @db.VarChar(500)
+  isActive    Boolean   @default(true)
+  basePrice   Decimal?  @db.Decimal(15, 2)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@map("box_models")
+}
+
+model Material {
+  id           Int       @id @default(autoincrement())
+  code         String    @unique @db.VarChar(100)
+  name         String    @db.VarChar(200)
+  description  String?   @db.Text
+  imageUrl     String?   @db.VarChar(500)
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@map("materials")
+}
+
+model FinishingOption {
+  id              Int       @id @default(autoincrement())
+  code            String    @unique @db.VarChar(100)
+  name            String    @db.VarChar(200)
+  description     String?   @db.Text
+  imageUrl        String?   @db.VarChar(500)
+  isActive        Boolean   @default(true)
+  category        String    @db.VarChar(10) // "side" | "type"
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@index([category])
+  @@map("finishing_options")
+}
+
+// ==========================================
+// Pricing Engine Tables (NEW)
+// ==========================================
+
+model PlanoType {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique @db.VarChar(20)  // "65x100" | "79x109" | "90x120"
+  width           Float                              // 65 | 79 | 90  (cm)
+  height          Float                              // 100 | 109 | 120 (cm)
+  effectiveWidth  Float                              // width - 2  (setelah potong grip)
+  effectiveHeight Float                              // height - 2.5
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("plano_types")
+}
+
+model MaterialPrice {
+  id           Int      @id @default(autoincrement())
+  planoCode    String   @db.VarChar(20)   // "65x100" | "79x109" | "90x120"
+  materialCode String   @db.VarChar(100)  // "duplex" | "ivory"
+  thickness    Int                         // GSM: 230|250|270|300|310|350|400
+  price        Float                       // Harga per plano (Rupiah)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([planoCode, materialCode, thickness])
+  @@index([planoCode])
+  @@index([isActive])
+  @@map("material_prices")
+}
+
+model ColorPrice {
+  id           Int      @id @default(autoincrement())
+  thicknessMin Int                // GSM minimal range
+  thicknessMax Int                // GSM maksimal range
+  pricePerSide Float              // Harga per sisi
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([thicknessMin])
+  @@index([isActive])
+  @@map("color_prices")
+}
+
+model CmykBlokPrice {
+  id            Int      @id @default(autoincrement())
+  thicknessMin  Int                // gramatur minimal range, contoh: 210
+  thicknessMax  Int                // gramatur maksimal range, contoh: 330
+  cetakPrice    Float              // harga cetak, contoh: 460000
+  dragPrice     Float              // harga per unit drag, contoh: 120
+  platPrice     Float              // harga plat flat, contoh: 170000
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([thicknessMin])
+  @@index([isActive])
+  @@map("cmyk_blok_prices")
+}
+
+model PricingConfig {
+  id                   Int      @id @default(autoincrement())
+  pondMultiplier       Float    @default(85)     // hargaPond = qty × ini
+  packingDivisor       Int      @default(500)    // qty ÷ ini
+  packingMultiplier    Float    @default(15000)  // hasil ÷ dikali ini
+  laminasiMultiplier   Float    @default(0.3)    // P × L × ini × qty
+  pisauPrice           Float    @default(700000) // harga pisau flat
+  dragThreshold        Int      @default(1000)   // qty dikurangi ini sebelum dikali dragPrice
+  updatedAt            DateTime @updatedAt
+
+  @@map("pricing_config")
+}
+
+// ==========================================
+// Order Table (UPDATED with pricing engine fields)
+// ==========================================
+
+model Order {
+  id                      Int                  @id @default(autoincrement())
+  orderNumber             String               @unique @db.VarChar(50)
+  userId                  Int
+  boxModel                String               @db.VarChar(50)
+  sizePanjang             Decimal              @db.Decimal(10, 2)
+  sizeLebar               Decimal              @db.Decimal(10, 2)
+  sizeTinggi              Decimal              @db.Decimal(10, 2)
+  sizeTinggiTutup         Decimal?             @db.Decimal(10, 2)
+  material                String               @db.VarChar(50)
+  materialThickness       Int
+  colorOption             String               @db.VarChar(50)
+  laminationSide          String               @db.VarChar(50)
+  laminationType          String?              @db.VarChar(50)
+  finishing               String?              @db.VarChar(50)
+  designFileUrl           String?              @db.VarChar(500)
+  designFilePublicId      String?              @db.VarChar(255)
+  designFileName          String?              @db.VarChar(255)
+  designFileSize          Int?
+  designFileFormat        String?              @db.VarChar(10)
+  customerNote            String?              @db.Text
+  quantity                Int
+
+  // === Shipping & Contact Fields ===
+  customerPhone           String?              @db.VarChar(20)
+  shippingProvince        String?              @db.VarChar(100)
+  shippingCity            String?              @db.VarChar(100)
+  shippingDistrict        String?              @db.VarChar(100)
+  shippingPostalCode      String?              @db.VarChar(10)
+  shippingDetailAddress   String?              @db.Text
+
+  // === Pricing Engine v3 Fields ===
+  planoType               String?              @db.VarChar(20)   // "65x100" | "79x109" | "90x120"
+  paperWidth              Float?                                  // Lebar kertas hasil formula (cm)
+  paperHeight             Float?                                  // Panjang kertas hasil formula (cm)
+  jumlahMata              Int?                                    // Hasil kalkulasi mata terbanyak
+  planoOrientation        String?              @db.VarChar(20)   // "normal" | "rotasi"
+  qtyPlano                Float?                                  // qtyBox ÷ jumlahMata ÷ 500
+  qtyRim                  Int?                                    // qtyBox ÷ 500
+
+  // === Total Harga ===
+  totalBayar              Float?                                  // sum semua komponen harga (kalkulasi backend)
+  hargaPerPcs             Float?                                  // totalBayar ÷ qty
+  subtotal                Decimal              @db.Decimal(15, 2)
+  totalAmount             Decimal              @db.Decimal(15, 2)
+
+  orderStatus             orders_orderStatus   @default(PENDING)
+  paymentStatus           orders_paymentStatus @default(UNPAID)
+  estimatedProductionDays Int                  @default(10)
+  productionStartDate     DateTime?            @db.Date
+  productionEndDate       DateTime?            @db.Date
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+  orderHistories          OrderHistory[]
+  user                    User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payments                payments[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([createdAt])
+  @@index([orderStatus])
+  @@index([paymentStatus])
+  @@map("orders")
+}
+
+model OrderHistory {
+  id             Int                      @id @default(autoincrement())
+  orderId        Int
+  previousStatus String?                  @db.VarChar(50)
+  newStatus      String                   @db.VarChar(50)
+  changedBy      Int?
+  changeType     order_history_changeType
+  notes          String?                  @db.Text
+  createdAt      DateTime                 @default(now())
+  users          User?                    @relation(fields: [changedBy], references: [id])
+  order          Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([createdAt])
+  @@index([changedBy], map: "order_history_changedBy_fkey")
+  @@map("order_history")
+}
+
+model bank_accounts {
+  id                Int      @id @default(autoincrement())
+  bankName          String   @db.VarChar(100)
+  accountNumber     String   @db.VarChar(50)
+  accountHolderName String   @db.VarChar(100)
+  branch            String?  @db.VarChar(100)
+  imageUrl          String?  @db.VarChar(500)
+  publicId          String?  @db.VarChar(255)
+  isActive          Boolean  @default(true)
+  displayOrder      Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+
+
+
+
+
+
+model payments {
+  id                   Int                    @id @default(autoincrement())
+  orderId              Int
+  paymentNumber        String                 @unique @db.VarChar(50)
+  paymentMethod        payments_paymentMethod
+  bankName             String?                @db.VarChar(100)
+  accountNumber        String?                @db.VarChar(50)
+  accountHolderName    String?                @db.VarChar(100)
+  amount               Decimal                @db.Decimal(15, 2)
+  paymentProofUrl      String?                @db.VarChar(500)
+  paymentProofPublicId String?                @db.VarChar(255)
+  paymentProofName     String?                @db.VarChar(255)
+  paymentStatus        payments_paymentStatus @default(PENDING)
+  verifiedBy           Int?
+  verifiedAt           DateTime?
+  rejectionReason      String?                @db.Text
+  paidAt               DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  orders               Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  users                User?                  @relation(fields: [verifiedBy], references: [id])
+
+  @@index([orderId])
+  @@index([paymentNumber])
+  @@index([paymentStatus])
+  @@index([verifiedBy], map: "payments_verifiedBy_fkey")
+}
+
+
+
+enum payments_paymentMethod {
+  BANK_TRANSFER
+  E_WALLET
+  CREDIT_CARD
+  CASH
+}
+
+enum users_role {
+  ADMIN
+  USER
+}
+
+enum order_history_changeType {
+  STATUS_CHANGE
+  PAYMENT_UPDATE
+  PRODUCTION_UPDATE
+  SHIPPING_UPDATE
+  OTHER
+}
+
+
+
+enum payments_paymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  REFUNDED
+}
+
+enum orders_orderStatus {
+  PENDING
+  WAITING_PAYMENT
+  PAYMENT_CONFIRMED
+  IN_PRODUCTION
+  READY_TO_SHIP
+  SHIPPED
+  COMPLETED
+  CANCELLED
+}
+
+enum orders_paymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
