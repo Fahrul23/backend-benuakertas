@@ -6,6 +6,7 @@ node_modules/
 
 # Prisma generated
 generated/
+prisma.config.ts
 
 # Uploads (opsional - hapus baris ini jika ingin track uploads)
 uploads/products/*
