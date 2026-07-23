@@ -34,7 +34,6 @@ app.use(cors({
   credentials: true,
 }));
 
-// Helmet - security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
